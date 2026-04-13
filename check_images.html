@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Link Checker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+        }
+        .test-report {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .image-test {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            border-left: 4px solid #ccc;
+            margin-bottom: 10px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        .image-test.working {
+            border-left-color: #4CAF50;
+            background: #f1f8f4;
+        }
+        .image-test.broken {
+            border-left-color: #f44336;
+            background: #fef1f0;
+        }
+        .status {
+            font-weight: bold;
+            min-width: 100px;
+            text-align: center;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        .status.working {
+            background: #4CAF50;
+            color: white;
+        }
+        .status.broken {
+            background: #f44336;
+            color: white;
+        }
+        .image-preview {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .image-info {
+            flex: 1;
+        }
+        .image-path {
+            font-family: monospace;
+            color: #666;
+            font-size: 0.9em;
+        }
+        .summary {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+        .summary h2 {
+            margin-top: 0;
+            color: #1976D2;
+        }
+        .score {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Image Link Verification Report</h1>
+        
+        <div class="summary">
+            <h2>Summary</h2>
+            <p>Checking all images referenced in your HTML files...</p>
+            <p class="score" id="summary">Loading...</p>
+        </div>
+
+        <div class="test-report">
+            <h2>Image Status</h2>
+            <div id="report">Loading image tests...</div>
+        </div>
+
+        <div class="test-report">
+            <h2>Images in /images/ Directory</h2>
+            <div id="imagesDir">Loading...</div>
+        </div>
+
+        <div class="test-report">
+            <h2>Issues Found & Recommendations</h2>
+            <div id="recommendations">Analyzing...</div>
+        </div>
+    </div>
+
+    <script>
+        // Images referenced in index.html
+        const referencedImages = [
+            { path: 'pic.jpeg', type: 'Profile Picture', location: 'Line 409' },
+            { path: 'EVSpecsDataset.png', type: 'Project Thumbnail', location: 'Lines 511, 545' }
+        ];
+
+        // Images in /images/ directory
+        const imagesDirectory = [
+            'images/bikesales.jpg',
+            'images/DA.png',
+            'images/DAP.jpg',
+            'images/kickstarter.png',
+            'images/Nashville.jpg',
+            'images/playstore.jpg',
+            'images/Walmart.jpg'
+        ];
+
+        // Test all images
+        async function testImage(imagePath) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve({ path: imagePath, status: 'working', error: null });
+                img.onerror = () => resolve({ path: imagePath, status: 'broken', error: '404 - Not Found' });
+                img.src = imagePath;
+                // Timeout after 5 seconds
+                setTimeout(() => {
+                    resolve({ path: imagePath, status: 'broken', error: 'Timeout' });
+                }, 5000);
+            });
+        }
+
+        async function runTests() {
+            const results = [];
+            
+            // Test referenced images
+            for (const img of referencedImages) {
+                const result = await testImage(img.path);
+                results.push({
+                    ...img,
+                    ...result,
+                    isReferenced: true
+                });
+            }
+
+            // Test images directory
+            for (const img of imagesDirectory) {
+                const result = await testImage(img);
+                results.push({
+                    path: img,
+                    type: 'Directory Image',
+                    location: 'Not used in HTML',
+                    ...result,
+                    isReferenced: false
+                });
+            }
+
+            displayResults(results);
+        }
+
+        function displayResults(results) {
+            const report = document.getElementById('report');
+            const imagesDir = document.getElementById('imagesDir');
+            const recommendations = document.getElementById('recommendations');
+            const summary = document.getElementById('summary');
+
+            let workingCount = 0;
+            let brokenCount = 0;
+            let referencedWorking = 0;
+            let referencedBroken = 0;
+
+            // Display referenced images
+            const referencedResults = results.filter(r => r.isReferenced);
+            let reportHTML = '';
+            for (const result of referencedResults) {
+                const isWorking = result.status === 'working';
+                if (isWorking) {
+                    workingCount++;
+                    referencedWorking++;
+                } else {
+                    brokenCount++;
+                    referencedBroken++;
+                }
+                
+                reportHTML += `
+                    <div class="image-test ${result.status}">
+                        ${isWorking ? `<img src="${result.path}" alt="" class="image-preview">` : `<div class="image-preview" style="background: #eee; display: flex; align-items: center; justify-content: center;">❌</div>`}
+                        <div class="image-info">
+                            <strong>${result.type}</strong><br>
+                            <span class="image-path">${result.path}</span><br>
+                            <small>Referenced at: ${result.location}</small>
+                        </div>
+                        <div class="status ${result.status}">${result.status === 'working' ? '✓ Working' : '✗ Broken'}</div>
+                    </div>
+                `;
+            }
+            report.innerHTML = reportHTML;
+
+            // Display unused images
+            const unusedResults = results.filter(r => !r.isReferenced);
+            let imagesHTML = '';
+            for (const result of unusedResults) {
+                const isWorking = result.status === 'working';
+                if (isWorking) {
+                    workingCount++;
+                }
+                imagesHTML += `
+                    <div class="image-test ${result.status}">
+                        ${isWorking ? `<img src="${result.path}" alt="" class="image-preview">` : `<div class="image-preview" style="background: #eee; display: flex; align-items: center; justify-content: center;">❌</div>`}
+                        <div class="image-info">
+                            <strong>Not referenced</strong><br>
+                            <span class="image-path">${result.path}</span><br>
+                            <small>This image is not used in any HTML file</small>
+                        </div>
+                        <div class="status ${result.status}">${result.status === 'working' ? '✓ Found' : '✗ Missing'}</div>
+                    </div>
+                `;
+            }
+            imagesDir.innerHTML = imagesHTML;
+
+            // Generate recommendations
+            let recHTML = '<ul>';
+            if (referencedBroken > 0) {
+                recHTML += `<li style="color: #f44336; font-weight: bold;">❌ ${referencedBroken} referenced image(s) not found!</li>`;
+                recHTML += '<li><strong>Missing file:</strong> <code>pic.jpeg</code> - Used for profile picture (line 409)</li>';
+                recHTML += '<li><strong>Action:</strong> Add a profile picture as <code>pic.jpeg</code> in the root directory, or update the reference to point to an existing image.</li>';
+            } else {
+                recHTML += '<li style="color: #4CAF50; font-weight: bold;">✓ All referenced images are found!</li>';
+            }
+
+            if (unusedResults.length > 0) {
+                recHTML += `<li style="color: #ff9800; font-weight: bold;">⚠️ Found ${unusedResults.length} unused images in /images/ directory</li>`;
+                recHTML += '<li><strong>Tip:</strong> Consider using these images in your project portfolio or remove them to clean up.</li>';
+            }
+
+            recHTML += '</ul>';
+            recommendations.innerHTML = recHTML;
+
+            // Update summary
+            const totalReferenced = referencedResults.length;
+            const allWorking = referencedBroken === 0;
+            const emoji = allWorking ? '✅' : '❌';
+            summary.innerHTML = `${emoji} ${referencedWorking}/${totalReferenced} referenced images found (${workingCount}/${results.length} total)`;
+        }
+
+        // Run tests when page loads
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>
